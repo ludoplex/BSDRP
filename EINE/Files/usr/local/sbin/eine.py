@@ -55,9 +55,8 @@ def check_duplicate(inv, args, gateway=False):
             return False
         if str(netaddr.IPNetwork(args.external)) in inv:
             return False
-    else:
-        if str(netaddr.IPNetwork(args.lan)) in inv:
-            return False
+    elif str(netaddr.IPNetwork(args.lan)) in inv:
+        return False
     return True
 
 def pprint_table(out, table):
@@ -89,20 +88,15 @@ def shell(cmd):
     cmdline = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT)
     out = cmdline.communicate()[0]
-    if cmdline.returncode != 0:
-        return False, out
-    else:
-        return True, out
+    return (False, out) if cmdline.returncode != 0 else (True, out)
 
 
 def ansible(command, inventory, group, hostname=None):
     "This send an Ansible command to group/hostname"
-    cmd = ['ansible', '-i', inventory]
-    cmd.append(group)
+    cmd = ['ansible', '-i', inventory, group]
     if hostname is not None:
-        cmd.append('--limit='+hostname)
-    cmd.append('--sudo')
-    cmd.append('-a')
+        cmd.append(f'--limit={hostname}')
+    cmd.extend(('--sudo', '-a'))
     cmd.append(command)
     return shell(cmd)
 
@@ -111,7 +105,7 @@ def ansible_playbook(inventory, playbook, hostname=None, tags=None):
     "This execute ansible-playbook template"
     cmd = ['ansible-playbook', '-i', inventory]
     if hostname is not None:
-        cmd.append('--limit='+hostname)
+        cmd.append(f'--limit={hostname}')
     if tags is not None:
         cmd.append('--tags')
         cmd.append(tags)
@@ -193,15 +187,16 @@ def cert_delete(hostname, easyvars, client_tpl, gw_tpl, server=False):
 
     if not server:
         # delete certificate files in client template
-        for cert in glob.glob(client_tpl + '/files/usr/local/etc/openvpn/'
-                              + hostname + '.*'):
+        for cert in glob.glob(f'{client_tpl}/files/usr/local/etc/openvpn/{hostname}.*'):
             os.remove(cert)
         # Update the CRL on the gateways template
         # shutil.copy fails because os.chmod return "Operation not permitted"
         # shutil.copy2 fails because os.utime return "Operation not permitted"
         try:
-            shutil.copy2(environement['KEY_DIR'] + '/crl.pem',
-                         gw_tpl  + '/files/usr/local/etc/openvpn')
+            shutil.copy2(
+                environement['KEY_DIR'] + '/crl.pem',
+                f'{gw_tpl}/files/usr/local/etc/openvpn',
+            )
         except OSError:
             # Can't push permission on crl.pem
             pass
@@ -212,10 +207,7 @@ def is_in_hosts(hostname):
     "This check if parameter hostname is present in /etc/hosts"
     with open('/etc/hosts', 'r') as hostsfile:
         hosts = hostsfile.readlines()
-    for item in hosts:
-        if hostname in item:
-            return True
-    return False
+    return any(hostname in item for item in hosts)
 
 def backup_hosts():
     "This backup hosts file"
@@ -237,10 +229,7 @@ def is_in_sshkey(hostname, known_hosts):
     "This check if hostname is present in "
     with open(known_hosts, 'r') as khfile:
         hosts = khfile.readlines()
-    for item in hosts:
-        if hostname in item:
-            return True
-    return False
+    return any(hostname in item for item in hosts)
 
 
 def sshkey_add(hostname, known_hosts):
@@ -254,9 +243,7 @@ def sshkey_add(hostname, known_hosts):
                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     #out = ssh.communicate()[0]
     ssh.wait()
-    if ssh.returncode != 0:
-        return False
-    return True
+    return ssh.returncode == 0
 
 
 def sshkey_del(hostname, known_hosts):
@@ -307,37 +294,32 @@ def source(script):
 
 def is_root():
     " This check if root user"
-    if os.geteuid() == 0:
-        return True
-    else:
-        return False
+    return os.geteuid() == 0
 
 
 def inventory_list(group, inv_file, hostvars_dir):
     " This get all inventory item of group"
     inventory = ConfigParser.SafeConfigParser(allow_no_value=True)
     inventory.read(inv_file)
-    if inventory.has_section(group):
-        full_inv = []
-        for hosts in inventory.items(group):
-            for host in hosts:
-                if os.path.isfile(hostvars_dir + '/' + host):
-                    variables = parse_config(hostvars_dir + '/' + host,
-                                             ':', '-')
-                    if group is 'vpn_wifi_routers':
-                        full_inv.append([host, variables['if_lo_inet4_addr'],
-                                         variables['if_lan_inet4_addr']+'/'
-                                         +variables['if_lan_inet4_prefix']])
-                    elif group is 'gateways':
-                        full_inv.append([host, variables['if_lo_inet4_addr'],
-                                         variables['if_int_inet4_addr'],
-                                         variables['registered_inet4_net'],
-                                         variables['unregistered_inet4_net']])
-                    else:
-                        sys.exit('ERROR: Unknown group {}'.format(group))
-        return full_inv
-    else:
+    if not inventory.has_section(group):
         return False
+    full_inv = []
+    for hosts in inventory.items(group):
+        for host in hosts:
+            if os.path.isfile(f'{hostvars_dir}/{host}'):
+                variables = parse_config(f'{hostvars_dir}/{host}', ':', '-')
+                if group is 'vpn_wifi_routers':
+                    full_inv.append([host, variables['if_lo_inet4_addr'],
+                                     variables['if_lan_inet4_addr']+'/'
+                                     +variables['if_lan_inet4_prefix']])
+                elif group is 'gateways':
+                    full_inv.append([host, variables['if_lo_inet4_addr'],
+                                     variables['if_int_inet4_addr'],
+                                     variables['registered_inet4_net'],
+                                     variables['unregistered_inet4_net']])
+                else:
+                    sys.exit(f'ERROR: Unknown group {group}')
+    return full_inv
 
 
 def inventory_add(hostname, customer, model, inv_file):
@@ -346,18 +328,17 @@ def inventory_add(hostname, customer, model, inv_file):
     inventory = ConfigParser.SafeConfigParser(allow_no_value=True)
     inventory.read(inv_file)
     # Adding group section and add device
-    group = customer + '_' + model
+    group = f'{customer}_{model}'
     if not inventory.has_section(group):
         inventory.add_section(group)
     if inventory.has_option(group, hostname):
-        sys.exit('There is already a client named {} in inventory'
-                 .format(hostname))
+        sys.exit(f'There is already a client named {hostname} in inventory')
     else:
         inventory.set(group, hostname)
     if not inventory.has_option('freebsd:children', group):
         inventory.set('freebsd:children', group)
-    if not inventory.has_option(model+':children', group):
-        inventory.set(model+':children', group)
+    if not inventory.has_option(f'{model}:children', group):
+        inventory.set(f'{model}:children', group)
     with open(inv_file, 'w') as inv:
         inventory.write(inv)
     return True

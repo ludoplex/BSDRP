@@ -11,7 +11,7 @@ import subprocess
 import time
 
 if len(sys.argv) < 2:
-    print("Usage: {} interface".format(sys.argv[0]))
+    print(f"Usage: {sys.argv[0]} interface")
     print("       with interface as bxe,cc,cxl,ix,ixl,igb,mce,mlxen or oce")
     sys.exit(1)
 
@@ -22,31 +22,31 @@ def read_nic(name):
     " rx and tx for each NIC (to compare with the sum of rx|tx of each queue) "
     m = re.match(r'^(bxe|cc|cxl|ix|ixl|igb|mce|mlxen|oce)(\d+)$', name)
     if not m:
-        raise Exception('Invalid nic name: {}'.format(name))
-    driver = m.group(1)
+        raise Exception(f'Invalid nic name: {name}')
+    driver = m[1]
     rxq = {}
     txq = {}
     agg = {}
     if driver == "mlxen":
-        for line in subprocess.check_output("/sbin/sysctl hw.{}{}".format(m.group(1), m.group(2)).split(), universal_newlines=True).split("\n"):
+        for line in subprocess.check_output(f"/sbin/sysctl hw.{m[1]}{m[2]}".split(), universal_newlines=True).split("\n"):
             # hw.mlxen0.stat.rx_ring1.packets
             # hw.mlxen0.stat.tx_ring4.packets
             # hw.mlxen0.stat.tx_packets
             # hw.mlxen0.stat.rx_packets:
             m = re.match(r'.*\.stat.tx_ring(\d+)\.packets:\s+(\d+)', line)
             if m:
-                txq[m.group(1)] = int(m.group(2))
+                txq[m[1]] = int(m[2])
             m = re.match(r'.*\.stat.rx_ring(\d+)\.packets:\s+(\d+)', line)
             if m:
-                rxq[m.group(1)] = int(m.group(2))
+                rxq[m[1]] = int(m[2])
             m = re.match(r'.*\.stat.rx_packets:\s+(\d+)', line)
             if m:
-                agg['rx_sum'] = int(m.group(1))
+                agg['rx_sum'] = int(m[1])
             m = re.match(r'.*\.stat.tx_packets:\s+(\d+)', line)
             if m:
-                agg['tx_sum'] = int(m.group(1))
+                agg['tx_sum'] = int(m[1])
     else:
-        for line in subprocess.check_output("/sbin/sysctl dev.{}.{}".format(m.group(1), m.group(2)).split(), universal_newlines=True).split("\n"):
+        for line in subprocess.check_output(f"/sbin/sysctl dev.{m[1]}.{m[2]}".split(), universal_newlines=True).split("\n"):
             # XXX: number of RXQ can be different than TXQ
             # dev.cxl.0.rxq.1.rxcsum
             # dev.cxl.1.txq.1.txpkt_wrs: 714494990
@@ -91,7 +91,7 @@ def read_nic(name):
             elif driver == "oce":
                 m = re.match(r'.*\.stats.tx.queue(\d+)\.tx_pkts:\s+(\d+)', line)
             if m:
-                txq[m.group(1)] = int(m.group(2))
+                txq[m[1]] = int(m[2])
             if driver == "bxe":
                 m = re.match(r'.*\.queue.(\d+)\.rx_pkts:\s+(\d+)', line)
             elif driver in ("cc", "cxl"):
@@ -105,7 +105,7 @@ def read_nic(name):
             elif driver == "oce":
                 m = re.match(r'.*\.stats.rx.queue(\d+)\.rx_pkts:\s+(\d+)', line)
             if m:
-                rxq[m.group(1)] = int(m.group(2))
+                rxq[m[1]] = int(m[2])
             if driver == "bxe":
                 # To do: aggregate bcast/mcast and ucast
                 m = re.match(r'.*\.rx_ucast_packets:\s+(\d+)', line)
@@ -123,7 +123,7 @@ def read_nic(name):
             elif driver == "oce":
                 m = re.match(r'.*\.stats.rx.total_pkts:\s+(\d+)', line)
             if m:
-                agg['rx_sum'] = int(m.group(1))
+                agg['rx_sum'] = int(m[1])
             if driver == "bxe":
                 # To do: aggregate bcast/mcast and ucast
                 m = re.match(r'.*\.tx_ucast_packets:\s+(\d+)', line)
@@ -138,7 +138,7 @@ def read_nic(name):
             elif driver == "oce":
                 m = re.match(r'.*\.stats.tx.total_tx_pkts:\s+(\d+)', line)
             if m:
-                agg['tx_sum'] = int(m.group(1))
+                agg['tx_sum'] = int(m[1])
     return [rxq, txq, agg]
 
 
@@ -146,14 +146,11 @@ def make_diff(old_ret, new_ret):
     " Doing diff between previous value and new one "
     rxq = {}
     txq = {}
-    agg = {}
     for i in old_ret[0]:
         rxq[i] = new_ret[0][i] - old_ret[0][i]
         txq[i] = new_ret[1][i] - old_ret[1][i]
 
-    for i in old_ret[2]:
-        agg[i] = new_ret[2][i] - old_ret[2][i]
-
+    agg = {i: new_ret[2][i] - old_ret[2][i] for i in old_ret[2]}
     return [rxq, txq, agg]
 
 

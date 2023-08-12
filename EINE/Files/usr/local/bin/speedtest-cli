@@ -180,9 +180,7 @@ def distance(origin, destination):
          math.cos(math.radians(lat2)) * math.sin(dlon / 2) *
          math.sin(dlon / 2))
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    d = radius * c
-
-    return d
+    return radius * c
 
 
 def build_user_agent():
@@ -194,10 +192,10 @@ def build_user_agent():
 
     ua_tuple = (
         'Mozilla/5.0',
-        '(%s; U; %s; en-us)' % (platform.system(), platform.architecture()[0]),
-        'Python/%s' % platform.python_version(),
+        f'({platform.system()}; U; {platform.architecture()[0]}; en-us)',
+        f'Python/{platform.python_version()}',
         '(KHTML, like Gecko)',
-        'speedtest-cli/%s' % __version__
+        f'speedtest-cli/{__version__}',
     )
     user_agent = ' '.join(ua_tuple)
     return user_agent
@@ -210,11 +208,7 @@ def build_request(url, data=None, headers={}):
 
     """
 
-    if url[0] == ':':
-        schemed_url = '%s%s' % (scheme, url)
-    else:
-        schemed_url = url
-
+    schemed_url = f'{scheme}{url}' if url[0] == ':' else url
     headers['User-Agent'] = user_agent
     return Request(schemed_url, data=data, headers=headers)
 
@@ -301,7 +295,7 @@ class FilePutter(threading.Thread):
         self.url = url
         chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
         data = chars * (int(round(int(size) / 36.0)))
-        self.data = ('content1=%s' % data[0:int(size) - 9]).encode()
+        self.data = f'content1={data[:int(size) - 9]}'.encode()
         del data
         self.result = None
         self.starttime = start
@@ -378,7 +372,7 @@ def getConfig():
     request = build_request('://www.speedtest.net/speedtest-config.php')
     uh, e = catch_request(request)
     if e:
-        print_('Could not retrieve speedtest.net configuration: %s' % e)
+        print_(f'Could not retrieve speedtest.net configuration: {e}')
         sys.exit(1)
     configxml = []
     while 1:
@@ -429,7 +423,7 @@ def closestServers(client, all=False):
             request = build_request(url)
             uh, e = catch_request(request)
             if e:
-                errors.append('%s' % e)
+                errors.append(f'{e}')
                 raise SpeedtestCliServerListError
             serversxml = []
             while 1:
@@ -500,14 +494,15 @@ def getBestServer(servers):
     results = {}
     for server in servers:
         cum = []
-        url = '%s/latency.txt' % os.path.dirname(server['url'])
+        url = f"{os.path.dirname(server['url'])}/latency.txt"
         urlparts = urlparse(url)
-        for i in range(0, 3):
+        for _ in range(0, 3):
             try:
-                if urlparts[0] == 'https':
-                    h = HTTPSConnection(urlparts[1])
-                else:
-                    h = HTTPConnection(urlparts[1])
+                h = (
+                    HTTPSConnection(urlparts[1])
+                    if urlparts[0] == 'https'
+                    else HTTPConnection(urlparts[1])
+                )
                 headers = {'User-Agent': user_agent}
                 start = timeit.default_timer()
                 h.request("GET", urlparts[2], headers=headers)

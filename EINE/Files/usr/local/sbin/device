@@ -41,13 +41,13 @@ import geoip2.database # Permit to parse GeoIP2 database
 # Variable definitions
 
 PREFIX = "/usr/local"
-ANSIBLE_DIR = PREFIX + "/etc/ansible"
+ANSIBLE_DIR = f"{PREFIX}/etc/ansible"
 #EASYRSA_VARS = PREFIX + "/etc/easy-rsa.vars"
-TPL_DIR = ANSIBLE_DIR + "/roles"
-ANSIBLE_HOSTVARS_DIR = ANSIBLE_DIR + "/host_vars"
-ANSIBLE_INV = ANSIBLE_DIR + "/inventory.ini"
+TPL_DIR = f"{ANSIBLE_DIR}/roles"
+ANSIBLE_HOSTVARS_DIR = f"{ANSIBLE_DIR}/host_vars"
+ANSIBLE_INV = f"{ANSIBLE_DIR}/inventory.ini"
 KNOWN_HOSTS = "/etc/dot.ssh." + os.environ['USER'] + "/known_hosts"
-PKI_DIR = PREFIX + "/etc/easy-rsa"
+PKI_DIR = f"{PREFIX}/etc/easy-rsa"
 
 # Function definitions #
 
@@ -452,8 +452,9 @@ def renew(args):
 
 def listing(args):
     "This list gateways"
-    inv = eine.inventory_list('gateways', ANSIBLE_INV, ANSIBLE_HOSTVARS_DIR)
-    if inv:
+    if inv := eine.inventory_list(
+        'gateways', ANSIBLE_INV, ANSIBLE_HOSTVARS_DIR
+    ):
         inv.insert(0, ['Hostname', 'loopack', 'internal IP',
                        'Registred VPN subnet', 'Unregistered VPN subnet'])
         eine.pprint_table(sys.stdout, inv)

@@ -38,11 +38,11 @@ import eine           # EINE functions modules
 # Variable definitions
 
 PREFIX = "/usr/local"
-ANSIBLE_DIR = PREFIX + "/etc/ansible"
-CLIENT_TPL_DIR = ANSIBLE_DIR + "/roles/vpn_wifi_router"
-GW_TPL_DIR = ANSIBLE_DIR + "/roles/gateway"
-ANSIBLE_HOSTVARS_DIR = ANSIBLE_DIR + "/host_vars"
-ANSIBLE_INV = ANSIBLE_DIR + "/inventory.ini"
+ANSIBLE_DIR = f"{PREFIX}/etc/ansible"
+CLIENT_TPL_DIR = f"{ANSIBLE_DIR}/roles/vpn_wifi_router"
+GW_TPL_DIR = f"{ANSIBLE_DIR}/roles/gateway"
+ANSIBLE_HOSTVARS_DIR = f"{ANSIBLE_DIR}/host_vars"
+ANSIBLE_INV = f"{ANSIBLE_DIR}/inventory.ini"
 KNOWN_HOSTS = "/etc/dot.ssh." + os.environ['USER'] + "/known_hosts"
 
 # Function definitions #
@@ -254,8 +254,9 @@ def renew(args):
 
 def listing(args):
     "This list gateways"
-    inv = eine.inventory_list('gateways', ANSIBLE_INV, ANSIBLE_HOSTVARS_DIR)
-    if inv:
+    if inv := eine.inventory_list(
+        'gateways', ANSIBLE_INV, ANSIBLE_HOSTVARS_DIR
+    ):
         inv.insert(0, ['Hostname', 'loopack', 'internal IP',
                        'Registred VPN subnet', 'Unregistered VPN subnet'])
         eine.pprint_table(sys.stdout, inv)

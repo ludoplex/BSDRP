@@ -39,12 +39,12 @@ import eine           # EINE functions modules
 # Variable definitions
 
 PREFIX = "/usr/local"
-ANSIBLE_DIR = PREFIX + "/etc/ansible"
-EASYRSA_VARS = PREFIX + "/etc/easy-rsa.vars"
-CLIENT_TPL_DIR = ANSIBLE_DIR + "/roles/vpn_wifi_router"
-GW_TPL_DIR = ANSIBLE_DIR + "/roles/gateway"
-ANSIBLE_HOSTVARS_DIR = ANSIBLE_DIR + "/host_vars"
-ANSIBLE_INV = ANSIBLE_DIR + "/inventory.ini"
+ANSIBLE_DIR = f"{PREFIX}/etc/ansible"
+EASYRSA_VARS = f"{PREFIX}/etc/easy-rsa.vars"
+CLIENT_TPL_DIR = f"{ANSIBLE_DIR}/roles/vpn_wifi_router"
+GW_TPL_DIR = f"{ANSIBLE_DIR}/roles/gateway"
+ANSIBLE_HOSTVARS_DIR = f"{ANSIBLE_DIR}/host_vars"
+ANSIBLE_INV = f"{ANSIBLE_DIR}/inventory.ini"
 KNOWN_HOSTS = "/etc/dot.ssh." + os.environ['USER'] + "/known_hosts"
 
 # Function definitions #
